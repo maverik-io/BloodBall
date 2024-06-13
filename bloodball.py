@@ -5,6 +5,17 @@ from random import randint
 from pygame.math import Vector2
 import pickle
 
+dark = False
+
+TEXT = '#FFFFFF' if not dark else '#000000'
+BLACK = '#000000' if not dark else '#FFFFFF'
+PILLARS = '#AAAAAA' if not dark else '#555555'
+PILLARS2 = '#BBBBBB' if not dark else '#444444'
+BG = '#DDDDDD' if not dark else '#222222'
+GROUND = '#333333' if not dark else '#6f6f6f'
+BLOOD = '#EE0000' if not dark else '#6262f7'
+
+
 try:
     with open("highscore.pkl", "rb") as f:
         highscore = pickle.load(f)
@@ -21,8 +32,9 @@ speed = 150
 
 font = pg.font.Font("Mono.ttf", 30) 
 font2 = pg.font.Font("Mono.ttf", 100)
+font3 = pg.font.Font("Mono.ttf", 20)
 
-class Birdy:
+class Ball:
     def __init__(self, pos):
         self.pos = pos
         self.vel = Vector2(0, 0)
@@ -52,12 +64,14 @@ class Birdy:
             return True
     
     def draw(self, screen):
-        colors = ["#ffeeee", "#ffdddd", "#ffcccc", "#ffbbbb", "#ffaaaa", "#ff9999", "#ff7777", "#ff6666", "#ff5555", "#ff4444"]
-
+        if not dark:
+            colors = ["#ffeeee", "#ffdddd", "#ffcccc", "#ffbbbb", "#ffaaaa", "#ff9999", "#ff7777", "#ff6666", "#ff5555", "#ff4444"]
+        else:
+            colors = ["#5555FF", "#4444EE", "#3333DD", "#2222CC", "#1111BB", "#0000AA", "#000099", "#000088", "#000077", "#000066"][::-1]
         for i, point in enumerate(self.prev_points):
             pg.draw.circle(screen, colors[int(i/4)], point, i/2)
 
-        pg.draw.circle(screen, "#ee0000", self.pos, self.radius)
+        pg.draw.circle(screen, BLOOD, self.pos, self.radius)
 
 
 
@@ -91,22 +105,35 @@ class Pipe:
         if not self.score_added:
             Pipe.score += 1
             self.score_added = True
+            # flip_colors()  # Uncomment this line to change colors when score is added
     
     def draw(self, screen):
-        pg.draw.rect(screen, "#aaaaaa", self.rect1, 0, 10)
-        pg.draw.rect(screen, "#aaaaaa", self.rect2, 0, 10)
+        pg.draw.rect(screen, PILLARS, self.rect1, 0, 10)
+        pg.draw.rect(screen, PILLARS, self.rect2, 0, 10)
 
-        pg.draw.rect(screen, "#bbbbbb", self.rect1, 10, 10)
-        pg.draw.rect(screen, "#bbbbbb", self.rect2, 10, 10)
+        pg.draw.rect(screen, PILLARS2, self.rect1, 10, 10)
+        pg.draw.rect(screen, PILLARS2, self.rect2, 10, 10)
 
-birdy = Birdy(Vector2(100, 300))
+ball = Ball(Vector2(100, 300))
+
+
+def flip_colors():
+    global TEXT, BLACK, PILLARS, PILLARS2, BG, GROUND, BLOOD, dark
+    dark = not dark
+
+    TEXT = '#FFFFFF' if not dark else '#000000'
+    BLACK = '#000000' if not dark else '#FFFFFF'
+    PILLARS = '#AAAAAA' if not dark else '#555555'
+    PILLARS2 = '#BBBBBB' if not dark else '#444444'
+    BG = '#DDDDDD' if not dark else '#222222'
+    GROUND = '#333333' if not dark else '#6f6f6f'
+    BLOOD = '#EE0000' if not dark else '#6262f7'
 
 def main():
-    global speed, highscore
-
-    birdy.pos = Vector2(100, 300)
-    birdy.vel = Vector2(0, 0)
-    birdy.prev_points = []
+    global speed, highscore, dark
+    ball.pos = Vector2(100, 300)
+    ball.vel = Vector2(0, 0)
+    ball.prev_points = []
 
     pipes = [Pipe(400+200*x) for x in range(4)]
     deltatime = 1/60
@@ -133,24 +160,29 @@ def main():
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE:
                     started = True
-                    birdy.jump()
+                    ball.jump()
+                    # flip_colors() # Uncomment this line to change colors when jumping
 
                     if ended:
                         return True
+                if event.key == pg.K_b:
+                    flip_colors()
 
             
-        screen.fill("#dddddd")
+        screen.fill(BG)
 
         if started and not ended:
-            if birdy.update(deltatime):
+            ball.radius = 20
+            if ball.update(deltatime):
                 ended = True
             
-            for point in birdy.collision_points:
+            for point in ball.collision_points:
                 for pipe in pipes:
-                    if pipe.rect1.collidepoint(birdy.pos + point) or pipe.rect2.collidepoint(birdy.pos + point):
+                    if pipe.rect1.collidepoint(ball.pos + point) or pipe.rect2.collidepoint(ball.pos + point):
                         ended = True
-                    if pipe.score_rect.collidepoint(birdy.pos + point):
+                    if pipe.score_rect.collidepoint(ball.pos + point):
                         pipe.add_score()
+                        
                     
 
         for pipe in pipes:
@@ -159,37 +191,41 @@ def main():
                 pipe.update(deltatime)
 
 
-        birdy.draw(screen)
+
+        ball.draw(screen)
 
         # UI
 
-        pg.draw.rect(screen, "#333333", (0, 625, 600, 100))
+        pg.draw.rect(screen, GROUND, (0, 625, 600, 100))
 
         if not started:
-            label = font.render("Press Space to start", True, "#ffffff")
+            label = font.render("Press Space to start", True, TEXT)
             screen.blit(label, label.get_rect(center=(300, 667)))
-            birdy.radius = max((birdy.radius - 50), 20)
+            ball.radius = max((ball.radius - 50), 20)
         elif ended:
-            label = font.render("Press Space to restart", True, "#ffffff")
+            label = font.render("Press Space to restart", True, TEXT)
             screen.blit(label, label.get_rect(center=(300, 667)))
-            birdy.radius = min((birdy.radius + 50), 1000)
-            if birdy.radius == 1000:
-                info_label1 = font.render("Game Over", True, "#ffffff")
+            ball.radius = min((ball.radius + 50), 1000)
+            if ball.radius == 1000:
+                info_label1 = font.render("Game Over", True, TEXT)
                 screen.blit(info_label1, info_label1.get_rect(center=(300, 100)))
 
-                info_label2 = font.render(f"Your Score", True, "#ffffff")
+                info_label2 = font.render(f"Your Score", True, TEXT)
                 screen.blit(info_label2, info_label2.get_rect(center=(150, 200)))
 
-                score_label = font2.render(f"{Pipe.score}", True, "#ffffff")
+                score_label = font2.render(f"{Pipe.score}", True, TEXT)
                 screen.blit(score_label, score_label.get_rect(center=(150, 300)))
 
-                info_label3 = font.render(f"High Score", True, "#ffffff")
+                info_label3 = font.render(f"High Score", True, TEXT)
                 screen.blit(info_label3, info_label3.get_rect(center=(450, 200)))
 
-                score_label2 = font2.render(f"{highscore}", True, "#ffffff")
+                score_label2 = font2.render(f"{highscore}", True, TEXT)
                 screen.blit(score_label2, score_label2.get_rect(center=(450, 300)))
+
+                info_label4 = font3.render(f"(^.^) Try Pressing <B> (^.^)", True, TEXT)
+                screen.blit(info_label4, info_label4.get_rect(center=(300, 500)))
         else:
-            label = font.render(f"Score: {Pipe.score} || Speed: {speed}", True, "#ffffff")
+            label = font.render(f"Score: {Pipe.score} || Speed: {speed}", True, TEXT)
             screen.blit(label, label.get_rect(center=(300, 667)))
 
 
